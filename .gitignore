@@ -1,0 +1,11 @@
+# Private data: student essays, generated audio, settings (incl. API key)
+data/
+
+# Python
+.venv/
+__pycache__/
+*.pyc
+
+# OS
+Thumbs.db
+.DS_Store
