@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>VCE Read Aloud</title>
+<link rel="stylesheet" href="/css/style.css">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🔊</text></svg>">
+</head>
+<body>
+
+<div id="app">
+  <!-- ============ Sidebar: library ============ -->
+  <aside id="sidebar">
+    <header id="sidebar-head">
+      <h1>🔊 VCE Read Aloud</h1>
+      <button id="btn-settings" class="icon-btn" title="Settings (,)" aria-label="Settings">⚙</button>
+    </header>
+
+    <div class="side-controls">
+      <input id="search" type="search" placeholder="Search essays… ( / )" autocomplete="off">
+      <div class="side-row">
+        <select id="filter-class" title="Filter by class"></select>
+        <select id="filter-student" title="Filter by student"></select>
+      </div>
+      <div class="side-row">
+        <button id="btn-add" class="big-btn primary" title="Add essay (N)">＋ Add essay</button>
+        <button id="btn-batch" class="big-btn" title="Export all audio for the selected class (B)">⬇ Batch export</button>
+      </div>
+    </div>
+
+    <ul id="essay-list" aria-label="Essay list"></ul>
+
+    <footer id="sidebar-foot">
+      <button id="btn-rules" class="link-btn">Pronunciation fixes</button>
+      <button id="btn-help" class="link-btn">Shortcuts (?)</button>
+    </footer>
+  </aside>
+
+  <!-- ============ Main: reader ============ -->
+  <main id="main">
+    <div id="empty-state">
+      <h2>Welcome 👋</h2>
+      <p>Add a class, a student, and an essay to get started —<br>
+         press <kbd>N</kbd> or click <strong>＋ Add essay</strong>.</p>
+      <p class="muted">Everything is stored locally in the <code>data</code> folder next to the app.</p>
+    </div>
+
+    <article id="reader" hidden>
+      <header id="reader-head">
+        <div>
+          <h2 id="essay-title"></h2>
+          <p id="essay-meta" class="muted"></p>
+        </div>
+        <div class="reader-actions">
+          <button id="btn-export-wav" class="big-btn" title="Save WAV file">WAV</button>
+          <button id="btn-export-mp3" class="big-btn" title="Save MP3 file (E)">⬇ MP3</button>
+          <button id="btn-delete-essay" class="big-btn danger" title="Delete essay">🗑</button>
+        </div>
+      </header>
+      <div id="essay-text" aria-live="off"></div>
+    </article>
+  </main>
+</div>
+
+<!-- ============ Playback bar ============ -->
+<div id="playbar" hidden>
+  <button id="btn-prev" class="play-btn" title="Previous paragraph (K or ↑)">⏮</button>
+  <button id="btn-play" class="play-btn main-play" title="Play / Pause (Space)">▶</button>
+  <button id="btn-stop" class="play-btn" title="Stop (S)">⏹</button>
+  <button id="btn-next" class="play-btn" title="Next paragraph (J or ↓)">⏭</button>
+  <div id="progress-wrap" title="Click to seek">
+    <div id="progress-bar"><div id="progress-fill"></div></div>
+    <span id="time-label">0:00 / 0:00</span>
+  </div>
+  <div id="playbar-status" class="muted"></div>
+</div>
+
+<audio id="player" preload="auto"></audio>
+
+<!-- ============ Add / import essay modal ============ -->
+<dialog id="modal-add">
+  <form method="dialog" class="modal-body" id="form-add">
+    <h3>Add essay</h3>
+    <div class="field-row">
+      <label>Class
+        <div class="combo">
+          <select id="add-class"></select>
+          <input id="add-class-new" placeholder="…or type a new class name">
+        </div>
+      </label>
+      <label>Student
+        <div class="combo">
+          <select id="add-student"></select>
+          <input id="add-student-new" placeholder="…or type a new student name">
+        </div>
+      </label>
+    </div>
+    <label>Title <input id="add-title" placeholder="e.g. Text response — Nine Days"></label>
+
+    <div class="tabs">
+      <button type="button" class="tab active" data-tab="paste">Paste text</button>
+      <button type="button" class="tab" data-tab="file">Import file (.docx / .pdf / .txt)</button>
+    </div>
+    <div id="tab-paste" class="tab-pane">
+      <textarea id="add-content" rows="10" placeholder="Paste the essay text here…"></textarea>
+    </div>
+    <div id="tab-file" class="tab-pane" hidden>
+      <div id="dropzone">
+        <p><strong>Drop files here</strong> or</p>
+        <input type="file" id="add-files" accept=".docx,.pdf,.txt" multiple>
+        <p class="muted">You can drop several files at once — each becomes an essay for the selected student.</p>
+      </div>
+    </div>
+
+    <p id="add-error" class="error" hidden></p>
+    <menu>
+      <button type="button" class="big-btn" id="add-cancel">Cancel</button>
+      <button type="submit" class="big-btn primary" id="add-save">Save essay</button>
+    </menu>
+  </form>
+</dialog>
+
+<!-- ============ Settings modal ============ -->
+<dialog id="modal-settings">
+  <div class="modal-body">
+    <h3>Voice &amp; settings</h3>
+
+    <label>Voice engine
+      <select id="set-engine">
+        <option value="local">Windows voices (local, private, free)</option>
+        <option value="azure">Azure AI Speech (cloud, more natural — needs API key)</option>
+      </select>
+    </label>
+
+    <div id="local-voice-wrap">
+      <label>Voice <select id="set-voice"></select></label>
+    </div>
+
+    <div id="azure-wrap" hidden>
+      <label>Azure voice <select id="set-azure-voice"></select></label>
+      <div class="field-row">
+        <label>API key <input id="set-azure-key" type="password" placeholder="paste key (stored locally only)"></label>
+        <label>Region <input id="set-azure-region" placeholder="e.g. australiaeast"></label>
+      </div>
+      <p class="muted" id="azure-key-status"></p>
+      <p class="muted">⚠ With Azure selected, essay text is sent to Microsoft's speech service to generate audio. Choose “Windows voices” to keep everything on this machine. See README for key setup.</p>
+    </div>
+
+    <div class="sliders">
+      <label>Speed <span class="slider-val" id="val-rate">0</span>
+        <input type="range" id="set-rate" min="-10" max="10" step="1" value="0"></label>
+      <label>Pitch <span class="slider-val" id="val-pitch">0</span>
+        <input type="range" id="set-pitch" min="-10" max="10" step="1" value="0"></label>
+      <label>Volume <span class="slider-val" id="val-volume">100</span>
+        <input type="range" id="set-volume" min="0" max="100" step="5" value="100"></label>
+    </div>
+
+    <div class="side-row">
+      <button class="big-btn" id="btn-preview-voice">🔊 Preview voice</button>
+    </div>
+    <p class="muted">Changing voice or sliders regenerates audio the next time you press play.</p>
+
+    <p id="settings-error" class="error" hidden></p>
+    <menu>
+      <button type="button" class="big-btn" id="settings-close">Close</button>
+      <button type="button" class="big-btn primary" id="settings-save">Save settings</button>
+    </menu>
+  </div>
+</dialog>
+
+<!-- ============ Pronunciation rules modal ============ -->
+<dialog id="modal-rules">
+  <div class="modal-body">
+    <h3>Pronunciation fixes</h3>
+    <p class="muted">When the voice mangles a name, add it here — e.g. read
+      “<em>Keneally</em>” as “<em>Kuh-nee-lee</em>”. Fixes apply to the audio for
+      every essay; the text on screen never changes.</p>
+    <div class="field-row rule-add-row">
+      <input id="rule-find" placeholder="Word as written (e.g. Wemmick)">
+      <input id="rule-replace" placeholder="How to say it (e.g. WEM-ick)">
+      <button class="big-btn primary" id="rule-add">Add</button>
+    </div>
+    <ul id="rule-list"></ul>
+    <menu><button type="button" class="big-btn" id="rules-close">Close</button></menu>
+  </div>
+</dialog>
+
+<!-- ============ Shortcuts modal ============ -->
+<dialog id="modal-help">
+  <div class="modal-body">
+    <h3>Keyboard shortcuts</h3>
+    <table id="shortcut-table">
+      <tr><td><kbd>Space</kbd></td><td>Play / pause</td></tr>
+      <tr><td><kbd>S</kbd></td><td>Stop</td></tr>
+      <tr><td><kbd>J</kbd> / <kbd>↓</kbd></td><td>Next paragraph</td></tr>
+      <tr><td><kbd>K</kbd> / <kbd>↑</kbd></td><td>Previous paragraph</td></tr>
+      <tr><td><kbd>←</kbd> / <kbd>→</kbd></td><td>Skip back / forward 5 s</td></tr>
+      <tr><td><kbd>PgDn</kbd> / <kbd>PgUp</kbd></td><td>Next / previous essay in the list</td></tr>
+      <tr><td><kbd>N</kbd></td><td>Add essay</td></tr>
+      <tr><td><kbd>E</kbd></td><td>Export MP3 of current essay</td></tr>
+      <tr><td><kbd>B</kbd></td><td>Batch export selected class</td></tr>
+      <tr><td><kbd>/</kbd></td><td>Search</td></tr>
+      <tr><td><kbd>,</kbd></td><td>Settings</td></tr>
+      <tr><td><kbd>?</kbd></td><td>This help</td></tr>
+      <tr><td><kbd>Esc</kbd></td><td>Close dialogs / stop</td></tr>
+    </table>
+    <p class="muted">Tip: click any word to start reading from there.</p>
+    <menu><button type="button" class="big-btn" id="help-close">Close</button></menu>
+  </div>
+</dialog>
+
+<div id="toast" hidden></div>
+
+<script src="/js/app.js"></script>
+</body>
+</html>

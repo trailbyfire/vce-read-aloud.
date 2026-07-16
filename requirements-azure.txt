@@ -1,0 +1,3 @@
+# Optional: only needed if you want the Azure AI Speech cloud voices.
+# Install with:  pip install -r requirements-azure.txt
+azure-cognitiveservices-speech>=1.37
